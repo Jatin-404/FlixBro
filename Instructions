@@ -1,0 +1,27 @@
+Integration Workflow:
+Frontend (HTML, CSS, JavaScript):
+
+Users interact with the interface (search movies, submit reviews, etc.).
+Uses AJAX or Fetch API to send HTTP requests to the Node.js + Express.js backend.
+Backend (Node.js + Express.js):
+
+Acts as a bridge between the frontend, database, and ML model.
+Handles API requests, processes data, and communicates with both the MySQL database and the TensorFlow model.
+Database (MySQL):
+
+Stores user data, movie details, and reviews.
+Backend uses MySQL drivers (like mysql2 or sequelize) to perform CRUD operations.
+ML Model (TensorFlow):
+You have two integration options:
+
+Flask API:
+Deploy the TensorFlow model in a separate Flask server.
+Node.js makes HTTP requests to the Flask API to send user reviews and get sentiment predictions.
+TensorFlow.js (Direct Integration):
+If you want the ML model to run directly in the browser or Node.js without a separate server.
+Good for simpler models but less efficient for complex ones.
+🔗 Example Flow:
+User submits a review → Frontend sends it to → Node.js Backend.
+Backend sends review to → TensorFlow model → gets sentiment.
+Backend stores review & sentiment in → MySQL Database.
+Frontend fetches updated data → displays to user.
