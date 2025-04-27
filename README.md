@@ -7,3 +7,10 @@ Analyzes the sentiment of the user’s review (+ve or -ve) using TensorFlow.
 Fetches additional reviews from IMDB and Rotten Tomatoes.
 Stores the user review alongside external data in the MySQL database.
 Combines all reviews to provide a comprehensive sentiment analysis.
+
+
+
+
+for error in front end
+set NODE_OPTIONS=--openssl-legacy-provider
+npm start
