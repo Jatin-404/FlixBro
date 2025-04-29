@@ -1,68 +1,80 @@
 // This file goes in client/src/App.js
 import React, { useState, useEffect } from 'react';
 import './App.css';
-import * as tf from '@tensorflow/tfjs';
 import axios from 'axios';
 
 function App() {
   const [title, setTitle] = useState('');
   const [review, setReview] = useState('');
   const [movies, setMovies] = useState([]);
-  const [model, setModel] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  // Load TensorFlow model
-  useEffect(() => {
-    async function loadModel() {
-      try {
-        // For this example, we'll use a pre-trained TF.js sentiment model
-        // In a real app, you'd host this model on your server
-        const loadedModel = await tf.loadLayersModel('https://storage.googleapis.com/tfjs-models/tfjs/sentiment_cnn_v1/model.json');
-        setModel(loadedModel);
-        console.log('Model loaded successfully');
-        setLoading(false);
-      } catch (error) {
-        console.error('Error loading model:', error);
-        // Fall back to a dummy model for demonstration
-        setLoading(false);
-      }
-    }
-    loadModel();
-  }, []);
+  const [analyzing, setAnalyzing] = useState(false);
 
   // Load all movies
   useEffect(() => {
     axios.get('/api/movies')
       .then(res => {
         setMovies(res.data);
+        setLoading(false);
       })
-      .catch(err => console.error('Error fetching movies:', err));
+      .catch(err => {
+        console.error('Error fetching movies:', err);
+        setLoading(false);
+      });
   }, []);
 
-  // Analyze sentiment using TensorFlow.js
+  // Analyze sentiment using our backend service
   const analyzeSentiment = async (text) => {
-    if (!model) {
-      // If model failed to load, just do a basic check
-      return text.includes('good') || text.includes('great') || text.includes('love') ? 'positive' : 'negative';
-    }
-    
     try {
-      // Preprocess text - these steps are simplified
-      const trimmed = text.trim().toLowerCase().replace(/(\.|\,|\!)/g, '').split(' ');
-      const wordIndex = {};
-      const sequence = trimmed.map(word => wordIndex[word] || 0);
-      
-      // Make prediction
-      const padSequence = tf.tensor2d([sequence]);
-      const prediction = model.predict(padSequence);
-      const score = prediction.dataSync()[0];
-      
-      return score > 0.5 ? 'positive' : 'negative';
+      setAnalyzing(true);
+      const response = await axios.post('/api/analyze', { text });
+      setAnalyzing(false);
+      return response.data.sentiment;
     } catch (error) {
       console.error('Error analyzing sentiment:', error);
-      // Fallback
-      return text.includes('good') || text.includes('great') || text.includes('love') ? 'positive' : 'negative';
+      setAnalyzing(false);
+      
+      // Basic fallback just in case API fails
+      const positiveWords = ['good', 'great', 'excellent', 'amazing', 'love', 'awesome', 'enjoyed', 'best', 'fantastic', 'wonderful'];
+      const negativeWords = ['bad', 'terrible', 'awful', 'horrible', 'hate', 'worst', 'boring', 'disappointing', 'poor', 'waste'];
+      
+      let positiveScore = 0;
+      let negativeScore = 0;
+      
+      const words = text.toLowerCase().split(/\W+/);
+      
+      words.forEach(word => {
+        if (positiveWords.includes(word)) positiveScore++;
+        if (negativeWords.includes(word)) negativeScore++;
+      });
+      
+      return positiveScore > negativeScore ? 'positive' : 'negative';
     }
+  };
+
+  // Calculate sentiment score on a scale from -1 to 1
+  const getSentimentScore = (review) => {
+    // Simple algorithm to demonstrate scoring
+    // This would be replaced by the actual sentiment score from your ML model
+    const positiveWords = ['good', 'great', 'excellent', 'amazing', 'love', 'awesome', 'enjoyed', 'best', 'fantastic', 'wonderful'];
+    const negativeWords = ['bad', 'terrible', 'awful', 'horrible', 'hate', 'worst', 'boring', 'disappointing', 'poor', 'waste'];
+    
+    const words = review.toLowerCase().split(/\W+/);
+    let score = 0;
+    let totalMatches = 0;
+    
+    words.forEach(word => {
+      if (positiveWords.includes(word)) {
+        score += 1;
+        totalMatches++;
+      }
+      if (negativeWords.includes(word)) {
+        score -= 1;
+        totalMatches++;
+      }
+    });
+    
+    return totalMatches === 0 ? 0 : score / totalMatches;
   };
 
   // Add a new movie with review
@@ -76,13 +88,15 @@ function App() {
     
     // Analyze sentiment
     const sentiment = await analyzeSentiment(review);
+    const sentimentScore = getSentimentScore(review);
     
     // Submit to server
     try {
       const res = await axios.post('/api/movies', {
         title,
         review,
-        sentiment
+        sentiment,
+        sentimentScore
       });
       
       // Add to state and reset form
@@ -96,6 +110,16 @@ function App() {
     }
   };
 
+  // Get the CSS class based on sentiment score
+  const getSentimentClass = (score) => {
+    if (!score && score !== 0) return 'neutral';
+    if (score > 0.5) return 'very-positive';
+    if (score > 0) return 'positive';
+    if (score === 0) return 'neutral';
+    if (score > -0.5) return 'negative';
+    return 'very-negative';
+  };
+
   return (
     <div className="App">
       <header className="App-header">
@@ -104,7 +128,7 @@ function App() {
       
       <div className="container">
         {loading ? (
-          <p>Loading sentiment analyzer model...</p>
+          <p>Loading movie reviews...</p>
         ) : (
           <>
             <div className="form-section">
@@ -131,7 +155,9 @@ function App() {
                   />
                 </div>
                 
-                <button type="submit">Add Review</button>
+                <button type="submit" disabled={analyzing}>
+                  {analyzing ? 'Analyzing Sentiment...' : 'Add Review'}
+                </button>
               </form>
             </div>
             
@@ -141,16 +167,44 @@ function App() {
                 <p>No movies yet. Be the first to add one!</p>
               ) : (
                 <div className="movie-list">
-                  {movies.map(movie => (
-                    <div key={movie._id} className={`movie-card ${movie.sentiment}`}>
-                      <h3>{movie.title}</h3>
-                      <p className="review-text">{movie.review}</p>
-                      <p className="sentiment">
-                        Sentiment: <span className={movie.sentiment}>{movie.sentiment}</span>
-                      </p>
-                      <p className="date">{new Date(movie.date).toLocaleDateString()}</p>
-                    </div>
-                  ))}
+                  {movies.map(movie => {
+                    const sentimentClass = movie.sentimentScore !== undefined 
+                      ? getSentimentClass(movie.sentimentScore) 
+                      : movie.sentiment;
+                    
+                    return (
+                      <div key={movie._id} className={`movie-card ${sentimentClass}`}>
+                        <h3>{movie.title}</h3>
+                        <p className="review-text">{movie.review}</p>
+                        <div className="sentiment-container">
+                          <p className="sentiment">
+                            Sentiment: <span className={sentimentClass}>{movie.sentiment}</span>
+                          </p>
+                          {movie.sentimentScore !== undefined && (
+                            <div className="sentiment-meter">
+                              <div className="sentiment-bar">
+                                <div 
+                                  className={`sentiment-value ${sentimentClass}`}
+                                  style={{ 
+                                    width: `${Math.abs(movie.sentimentScore) * 100}%`,
+                                    marginLeft: movie.sentimentScore < 0 ? 'auto' : '50%',
+                                    marginRight: movie.sentimentScore >= 0 ? 'auto' : '50%'
+                                  }}
+                                ></div>
+                                <div className="sentiment-center-line"></div>
+                              </div>
+                              <div className="sentiment-labels">
+                                <span>Negative</span>
+                                <span>Neutral</span>
+                                <span>Positive</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <p className="date">{new Date(movie.date).toLocaleDateString()}</p>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
