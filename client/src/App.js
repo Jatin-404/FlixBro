@@ -12,6 +12,10 @@ function App() {
 
   // Load all movies
   useEffect(() => {
+    fetchMovies();
+  }, []);
+
+  const fetchMovies = () => {
     axios.get('/api/movies')
       .then(res => {
         setMovies(res.data);
@@ -21,7 +25,7 @@ function App() {
         console.error('Error fetching movies:', err);
         setLoading(false);
       });
-  }, []);
+  };
 
   // Analyze sentiment using our backend service
   const analyzeSentiment = async (text) => {
@@ -52,32 +56,7 @@ function App() {
     }
   };
 
-  // Calculate sentiment score on a scale from -1 to 1
-  const getSentimentScore = (review) => {
-    // Simple algorithm to demonstrate scoring
-    // This would be replaced by the actual sentiment score from your ML model
-    const positiveWords = ['good', 'great', 'excellent', 'amazing', 'love', 'awesome', 'enjoyed', 'best', 'fantastic', 'wonderful'];
-    const negativeWords = ['bad', 'terrible', 'awful', 'horrible', 'hate', 'worst', 'boring', 'disappointing', 'poor', 'waste'];
-    
-    const words = review.toLowerCase().split(/\W+/);
-    let score = 0;
-    let totalMatches = 0;
-    
-    words.forEach(word => {
-      if (positiveWords.includes(word)) {
-        score += 1;
-        totalMatches++;
-      }
-      if (negativeWords.includes(word)) {
-        score -= 1;
-        totalMatches++;
-      }
-    });
-    
-    return totalMatches === 0 ? 0 : score / totalMatches;
-  };
-
-  // Add a new movie with review
+  // Add a new movie review
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -86,27 +65,23 @@ function App() {
       return;
     }
     
-    // Analyze sentiment
-    const sentiment = await analyzeSentiment(review);
-    const sentimentScore = getSentimentScore(review);
-    
     // Submit to server
     try {
-      const res = await axios.post('/api/movies', {
+      await axios.post('/api/movies', {
         title,
-        review,
-        sentiment,
-        sentimentScore
+        review
       });
       
-      // Add to state and reset form
-      setMovies([res.data, ...movies]);
+      // Refresh movie list
+      fetchMovies();
+      
+      // Reset form
       setTitle('');
       setReview('');
       
     } catch (err) {
-      console.error('Error adding movie:', err);
-      alert('Error adding movie. Please try again.');
+      console.error('Error adding movie review:', err);
+      alert('Error adding movie review. Please try again.');
     }
   };
 
@@ -167,44 +142,46 @@ function App() {
                 <p>No movies yet. Be the first to add one!</p>
               ) : (
                 <div className="movie-list">
-                  {movies.map(movie => {
-                    const sentimentClass = movie.sentimentScore !== undefined 
-                      ? getSentimentClass(movie.sentimentScore) 
-                      : movie.sentiment;
-                    
-                    return (
-                      <div key={movie._id} className={`movie-card ${sentimentClass}`}>
-                        <h3>{movie.title}</h3>
-                        <p className="review-text">{movie.review}</p>
-                        <div className="sentiment-container">
-                          <p className="sentiment">
-                            Sentiment: <span className={sentimentClass}>{movie.sentiment}</span>
-                          </p>
-                          {movie.sentimentScore !== undefined && (
-                            <div className="sentiment-meter">
-                              <div className="sentiment-bar">
-                                <div 
-                                  className={`sentiment-value ${sentimentClass}`}
-                                  style={{ 
-                                    width: `${Math.abs(movie.sentimentScore) * 100}%`,
-                                    marginLeft: movie.sentimentScore < 0 ? 'auto' : '50%',
-                                    marginRight: movie.sentimentScore >= 0 ? 'auto' : '50%'
-                                  }}
-                                ></div>
-                                <div className="sentiment-center-line"></div>
-                              </div>
-                              <div className="sentiment-labels">
-                                <span>Negative</span>
-                                <span>Neutral</span>
-                                <span>Positive</span>
+                  {movies.map(movie => (
+                    <div key={movie._id} className="movie-card">
+                      <h3>{movie.title}</h3>
+                      <p className="review-count">{movie.reviews.length} {movie.reviews.length === 1 ? 'Review' : 'Reviews'}</p>
+                      
+                      {movie.reviews.map((review, index) => {
+                        const sentimentClass = getSentimentClass(review.sentimentScore);
+                        
+                        return (
+                          <div key={index} className={`review-item ${sentimentClass}`}>
+                            <p className="review-text">{review.text}</p>
+                            <div className="sentiment-container">
+                              <p className="sentiment">
+                                Sentiment: <span className={sentimentClass}>{review.sentiment}</span>
+                              </p>
+                              <div className="sentiment-meter">
+                                <div className="sentiment-bar">
+                                  <div 
+                                    className={`sentiment-value ${sentimentClass}`}
+                                    style={{ 
+                                      width: `${Math.abs(review.sentimentScore) * 100}%`,
+                                      marginLeft: review.sentimentScore < 0 ? 'auto' : '50%',
+                                      marginRight: review.sentimentScore >= 0 ? 'auto' : '50%'
+                                    }}
+                                  ></div>
+                                  <div className="sentiment-center-line"></div>
+                                </div>
+                                <div className="sentiment-labels">
+                                  <span>Negative</span>
+                                  <span>Neutral</span>
+                                  <span>Positive</span>
+                                </div>
                               </div>
                             </div>
-                          )}
-                        </div>
-                        <p className="date">{new Date(movie.date).toLocaleDateString()}</p>
-                      </div>
-                    );
-                  })}
+                            <p className="date">{new Date(review.date).toLocaleDateString()}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
