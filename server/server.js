@@ -5,11 +5,45 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const natural = require('natural');
 const stopword = require('stopword');
+const admin = require('firebase-admin');
 const app = express();
+
+// Initialize Firebase Admin SDK
+// You'll need to create a service account in the Firebase console
+// and download the JSON key file
+admin.initializeApp({
+  credential: admin.credential.cert({
+    // Replace with your service account details
+    // Or use environment variables
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+  }),
+});
 
 // Middleware
 app.use(express.json());
 app.use(cors());
+
+// Authentication middleware
+const authenticateUser = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized: No token provided' });
+  }
+  
+  const token = authHeader.split(' ')[1];
+  
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    req.user = decodedToken;
+    next();
+  } catch (error) {
+    console.error('Authentication error:', error);
+    return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+  }
+};
 
 // DB connection
 mongoose.connect(process.env.MONGO_URL)
@@ -21,7 +55,8 @@ const reviewSchema = new mongoose.Schema({
   text: { type: String, required: true },
   sentiment: { type: String, required: true }, // "positive" or "negative"
   sentimentScore: { type: Number, default: 0 }, // Range from -1 (very negative) to 1 (very positive)
-  date: { type: Date, default: Date.now }
+  date: { type: Date, default: Date.now },
+  userId: { type: String, required: true } // Add user ID for identifying who wrote the review
 });
 
 const movieSchema = new mongoose.Schema({
@@ -62,7 +97,7 @@ function analyzeSentiment(text) {
 
 // Routes
 // Get all movies with their reviews
-app.get('/api/movies', async (req, res) => {
+app.get('/api/movies', authenticateUser, async (req, res) => {
   try {
     const movies = await Movie.find().sort({ 'reviews.date': -1 });
     res.json(movies);
@@ -73,9 +108,10 @@ app.get('/api/movies', async (req, res) => {
 });
 
 // Add a new review to a movie
-app.post('/api/movies', async (req, res) => {
+app.post('/api/movies', authenticateUser, async (req, res) => {
   try {
     const { title, review } = req.body;
+    const userId = req.user.uid; // Extract user ID from authenticated token
     
     // Analyze sentiment
     const analysis = analyzeSentiment(review);
@@ -85,7 +121,8 @@ app.post('/api/movies', async (req, res) => {
       text: review,
       sentiment: analysis.sentiment,
       sentimentScore: analysis.sentimentScore,
-      date: new Date()
+      date: new Date(),
+      userId: userId
     };
     
     // Check if movie already exists
@@ -116,7 +153,7 @@ app.post('/api/movies', async (req, res) => {
 });
 
 // New route for sentiment analysis
-app.post('/api/analyze', (req, res) => {
+app.post('/api/analyze', authenticateUser, (req, res) => {
   try {
     const { text } = req.body;
     

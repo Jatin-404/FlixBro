@@ -2,6 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import axios from 'axios';
+import Login from './components/Login';
+import { auth } from './firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 function App() {
   const [title, setTitle] = useState('');
@@ -9,14 +12,45 @@ function App() {
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState('');
+  
+  // Monitor authentication state
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // User is signed in
+        setIsLoggedIn(true);
+        setUser(user.email);
+      } else {
+        // User is signed out
+        setIsLoggedIn(false);
+        setUser('');
+      }
+    });
+    
+    // Clean up the listener when component unmounts
+    return () => unsubscribe();
+  }, []);
 
   // Load all movies
   useEffect(() => {
-    fetchMovies();
-  }, []);
+    if (isLoggedIn) {
+      fetchMovies();
+    }
+  }, [isLoggedIn]);
 
   const fetchMovies = () => {
-    axios.get('/api/movies')
+    // Get the current user's token
+    auth.currentUser.getIdToken(true)
+      .then(token => {
+        // Include the token in the request header
+        return axios.get('/api/movies', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+      })
       .then(res => {
         setMovies(res.data);
         setLoading(false);
@@ -27,11 +61,34 @@ function App() {
       });
   };
 
+  // Handle login
+  const handleLogin = (email) => {
+    setIsLoggedIn(true);
+    setUser(email);
+  };
+
+  // Handle logout
+  const handleLogout = () => {
+    signOut(auth).then(() => {
+      setIsLoggedIn(false);
+      setUser('');
+    }).catch((error) => {
+      console.error('Error signing out:', error);
+    });
+  };
+
   // Analyze sentiment using our backend service
   const analyzeSentiment = async (text) => {
     try {
       setAnalyzing(true);
-      const response = await axios.post('/api/analyze', { text });
+      // Get the current user's token
+      const token = await auth.currentUser.getIdToken(true);
+      
+      const response = await axios.post('/api/analyze', 
+        { text },
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
+      
       setAnalyzing(false);
       return response.data.sentiment;
     } catch (error) {
@@ -67,10 +124,13 @@ function App() {
     
     // Submit to server
     try {
-      await axios.post('/api/movies', {
-        title,
-        review
-      });
+      // Get the current user's token
+      const token = await auth.currentUser.getIdToken(true);
+      
+      await axios.post('/api/movies', 
+        { title, review },
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
       
       // Refresh movie list
       fetchMovies();
@@ -95,10 +155,27 @@ function App() {
     return 'very-negative';
   };
 
+  // If not logged in, show login page
+  if (!isLoggedIn) {
+    return (
+      <div className="App">
+        <header className="App-header">
+          <h1>MovieFlix Reviews</h1>
+        </header>
+        <Login onLogin={handleLogin} />
+      </div>
+    );
+  }
+
+  // Main app when logged in
   return (
     <div className="App">
       <header className="App-header">
-        <h1>Movie Review Sentiment Analyzer</h1>
+        <h1>MovieFlix Reviews</h1>
+        <div className="nav-links">
+          <span className="nav-link">{user}</span>
+          <span className="nav-link" onClick={handleLogout}>Logout</span>
+        </div>
       </header>
       
       <div className="container">
@@ -110,7 +187,6 @@ function App() {
               <h2>Add a New Movie Review</h2>
               <form onSubmit={handleSubmit}>
                 <div className="form-group">
-                  <label>Movie Title:</label>
                   <input
                     type="text"
                     value={title}
@@ -121,7 +197,6 @@ function App() {
                 </div>
                 
                 <div className="form-group">
-                  <label>Your Review:</label>
                   <textarea
                     value={review}
                     onChange={(e) => setReview(e.target.value)}
@@ -168,11 +243,6 @@ function App() {
                                     }}
                                   ></div>
                                   <div className="sentiment-center-line"></div>
-                                </div>
-                                <div className="sentiment-labels">
-                                  <span>Negative</span>
-                                  <span>Neutral</span>
-                                  <span>Positive</span>
                                 </div>
                               </div>
                             </div>
