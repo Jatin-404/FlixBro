@@ -1,11 +1,9 @@
 pipeline {
     agent {
-        // Use an agent with Docker installed
         docker {
             image 'node:16-alpine' 
             args '-v /var/run/docker.sock:/var/run/docker.sock'
-            // Add Docker CLI to the image
-            label 'docker'
+            // Removed the label requirement
         }
     }
     
