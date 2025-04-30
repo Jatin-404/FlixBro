@@ -8,7 +8,7 @@ pipeline {
     stages {
         stage('Checkout Code') {
             steps {
-                git credentialsId: 'git-credentials', url: 'https://github.com/Jatin-404/FlixBro.git'
+                git credentialsId: 'git-credentials', url: 'https://github.com/Jatin-404/FlixBro.git', branch: 'main'
             }
         }
 
