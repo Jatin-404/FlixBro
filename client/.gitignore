@@ -21,3 +21,29 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Node modules
+node_modules/
+
+# Environment variables
+.env
+server/.env
+
+# Build output
+client/build/
+
+# Docker volumes
+data/
+
+# IDE files
+.vscode/
+.idea/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# System files
+.DS_Store
+Thumbs.db

@@ -11,16 +11,19 @@ const app = express();
 // Initialize Firebase Admin SDK
 // You'll need to create a service account in the Firebase console
 // and download the JSON key file
+console.log("FIREBASE_PROJECT_ID:", process.env.FIREBASE_PROJECT_ID);
+console.log("FIREBASE_CLIENT_EMAIL:", process.env.FIREBASE_CLIENT_EMAIL);
+console.log("FIREBASE_PRIVATE_KEY present?", !!process.env.FIREBASE_PRIVATE_KEY);
+
+
+
 admin.initializeApp({
   credential: admin.credential.cert({
-    // Replace with your service account details
-    // Or use environment variables
-    projectId: process.env.FIREBASE_PROJECT_ID,
-    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    project_id: process.env.FIREBASE_PROJECT_ID,
+    client_email: process.env.FIREBASE_CLIENT_EMAIL,
+    private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
   }),
 });
-
 // Middleware
 app.use(express.json());
 app.use(cors());
