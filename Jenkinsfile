@@ -10,7 +10,7 @@ pipeline {
     }
 
     tools {
-        nodejs 'Node16'  // Assuming you have configured NodeJS 'Node16' in Jenkins
+        nodejs 'Node16'  // Ensure this matches the NodeJS version in Jenkins global tools
     }
 
     stages {
@@ -44,14 +44,14 @@ pipeline {
                 stage('Build Client') {
                     steps {
                         dir('client') {
-                            sh 'npm run build'  // Assuming you have a build script in your package.json
+                            sh 'npm run build'  // Ensure the build script exists
                         }
                     }
                 }
                 stage('Build Server') {
                     steps {
                         dir('server') {
-                            sh 'npm run build'  // Assuming you have a build script in your package.json
+                            sh 'npm run build'  // Ensure the build script exists
                         }
                     }
                 }
@@ -60,8 +60,25 @@ pipeline {
 
         stage('Check Docker and Docker Compose') {
             steps {
-                sh 'docker --version || echo "Docker is not installed!"'
-                sh 'docker-compose --version || echo "Docker Compose is not installed!"'
+                script {
+                    // Check Docker version
+                    def dockerVersion = sh(script: 'docker --version', returnStdout: true).trim()
+                    echo "Docker Version: ${dockerVersion}"
+
+                    // Check Docker Compose version
+                    def composeVersion = sh(script: 'docker-compose --version', returnStdout: true).trim()
+                    echo "Docker Compose Version: ${composeVersion}"
+
+                    // Exit if Docker is not installed
+                    if (!dockerVersion.contains("Docker")) {
+                        error "Docker is not installed on the Jenkins agent."
+                    }
+
+                    // Exit if Docker Compose is not installed
+                    if (!composeVersion.contains("docker-compose")) {
+                        error "Docker Compose is not installed on the Jenkins agent."
+                    }
+                }
             }
         }
 
@@ -78,16 +95,16 @@ pipeline {
         stage('Push Docker Images') {
             steps {
                 script {
-                    // Docker login to Docker Hub (using stored credentials)
+                    // Docker login to Docker Hub using stored credentials
                     withCredentials([usernamePassword(credentialsId: 'your-docker-hub-credentials-id', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                         sh "echo ${DOCKER_PASS} | docker login -u ${DOCKER_USER} --password-stdin"
                     }
                     
-                    // Push client and server images
+                    // Push client and server images to Docker Hub
                     sh 'docker push ${CLIENT_IMAGE}'
                     sh 'docker push ${SERVER_IMAGE}'
 
-                    // Also tag and push images as "latest"
+                    // Tag and push images as "latest"
                     sh 'docker tag ${CLIENT_IMAGE} ${DOCKER_REGISTRY}/flixbro-client:latest'
                     sh 'docker tag ${SERVER_IMAGE} ${DOCKER_REGISTRY}/flixbro-server:latest'
                     sh 'docker push ${DOCKER_REGISTRY}/flixbro-client:latest'
@@ -99,17 +116,21 @@ pipeline {
         stage('Run Docker Compose') {
             steps {
                 script {
-                    // Stop and remove any running containers before starting new ones
-                    sh 'docker-compose down || true'
-                    // Start containers with Docker Compose
-                    sh 'docker-compose up -d --build'
+                    // Check if docker-compose command exists and run
+                    if (isUnix()) {
+                        sh 'docker-compose down || true'
+                        sh 'docker-compose up -d --build'
+                    } else {
+                        bat 'docker-compose down || true'
+                        bat 'docker-compose up -d --build'
+                    }
                 }
             }
         }
 
         stage('Check Running Containers') {
             steps {
-                sh 'docker ps'  // List running containers to verify if everything is running
+                sh 'docker ps'  // Verify containers are running
             }
         }
     }
