@@ -160,7 +160,7 @@ function App() {
     return (
       <div className="App">
         <header className="App-header">
-          <h1>MovieFlix Reviews</h1>
+          <h1>FlixBro</h1>
         </header>
         <Login onLogin={handleLogin} />
       </div>
@@ -171,7 +171,7 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <h1>MovieFlix Reviews</h1>
+        <h1>FlixBro</h1>
         <div className="nav-links">
           <span className="nav-link">{user}</span>
           <span className="nav-link" onClick={handleLogout}>Logout</span>
