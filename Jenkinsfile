@@ -7,7 +7,7 @@ pipeline {
         CLIENT_IMAGE = "${DOCKER_REGISTRY}/flixbro-client:${env.BUILD_NUMBER}"
         SERVER_IMAGE = "${DOCKER_REGISTRY}/flixbro-server:${env.BUILD_NUMBER}"
         // Define Docker Hub credentials properly
-        DOCKER_HUB_CREDS = credentials('docker-hub-credentials')
+        DOCKER_HUB_CREDS = credentials('jatindocker10/my-ubuntu-image:latest')
     }
     
     stages {
