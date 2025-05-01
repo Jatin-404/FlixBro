@@ -2,61 +2,49 @@ pipeline {
     agent any
 
     environment {
-        COMPOSE_FILE = 'docker-compose.yml'
+        FRONTEND_IMAGE = 'jatindocker10/client'
+        BACKEND_IMAGE = 'jatindocker10/server'
     }
 
     stages {
-        stage('Checkout Code') {
+        stage('Clone Repo') {
             steps {
-                echo 'Checking out latest code from main branch...'
-                git branch: 'main', url: 'https://github.com/DhruvTemura/VolatiSense.git'
+                git url: 'https://github.com/Jatin-404/FlixBro.git', branch: 'main'
             }
         }
 
-        stage('Build Docker Images') {
+        stage('Build Frontend') {
             steps {
-                echo 'Building Docker images...'
-                sh '''
-                    docker-compose down --remove-orphans
-                    docker-compose pull || true
-                    docker-compose build --no-cache
-                '''
+                dir('client') {
+                    // Specify the custom frontend Dockerfile
+                    sh 'docker build -f Dockerfile -t $FRONTEND_IMAGE .'
+                }
             }
         }
 
-        stage('Run Docker Containers') {
+        stage('Build Backend') {
             steps {
-                echo 'Starting Docker containers...'
-                sh 'docker-compose up -d'
+                dir('server') {
+                    // Specify the custom backend Dockerfile
+                    sh 'docker build -f Dockerfile -t $BACKEND_IMAGE .'
+                }
             }
         }
 
-        stage('Show Running Containers') {
+        stage('Push Docker Images') {
             steps {
-                echo 'Currently running containers:'
-                sh 'docker ps'
+                withDockerRegistry([credentialsId: 'dockerhub-credentials', url: '']) {
+                    sh 'docker push $FRONTEND_IMAGE'
+                    sh 'docker push $BACKEND_IMAGE'
+                }
             }
         }
 
-        stage('Show Docker Logs') {
+        stage('Deploy (Optional)') {
             steps {
-                echo 'Fetching Docker logs...'
-                sh 'docker-compose logs --tail=100'
+                echo 'Deploying application...'
+                // Example: docker-compose pull && docker-compose up -d
             }
-        }
-    }
-
-    post {
-        failure {
-            echo 'Pipeline failed. Cleaning up Docker containers...'
-            sh 'docker-compose down'
-        }
-        success {
-            echo 'Pipeline completed successfully!'
-        }
-        always {
-            echo 'Cleaning up dangling images (optional)...'
-            sh 'docker image prune -f || true'
         }
     }
 }
