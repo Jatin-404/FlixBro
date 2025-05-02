@@ -155,6 +155,31 @@ function App() {
     return 'very-negative';
   };
 
+  // Calculate overall sentiment score for a movie
+  const calculateOverallSentiment = (reviews) => {
+    if (!reviews || reviews.length === 0) return { score: 0, sentiment: 'neutral' };
+    
+    // Sum all sentiment scores
+    const totalScore = reviews.reduce((sum, review) => sum + review.sentimentScore, 0);
+    
+    // Calculate average
+    const averageScore = totalScore / reviews.length;
+    
+    // Determine sentiment label
+    let sentiment;
+    if (averageScore > 0.5) sentiment = 'very positive';
+    else if (averageScore > 0.05) sentiment = 'positive';
+    else if (averageScore >= -0.05 && averageScore <= 0.05) sentiment = 'neutral';
+    else if (averageScore > -0.5) sentiment = 'negative';
+    else sentiment = 'very negative';
+    
+    return { 
+      score: averageScore, 
+      sentiment: sentiment,
+      class: getSentimentClass(averageScore)
+    };
+  };
+
   // If not logged in, show login page
   if (!isLoggedIn) {
     return (
@@ -217,41 +242,64 @@ function App() {
                 <p>No movies yet. Be the first to add one!</p>
               ) : (
                 <div className="movie-list">
-                  {movies.map(movie => (
-                    <div key={movie._id} className="movie-card">
-                      <h3>{movie.title}</h3>
-                      <p className="review-count">{movie.reviews.length} {movie.reviews.length === 1 ? 'Review' : 'Reviews'}</p>
-                      
-                      {movie.reviews.map((review, index) => {
-                        const sentimentClass = getSentimentClass(review.sentimentScore);
+                  {movies.map(movie => {
+                    // Calculate overall sentiment for this movie
+                    const overallSentiment = calculateOverallSentiment(movie.reviews);
+                    
+                    return (
+                      <div key={movie._id} className="movie-card">
+                        <div className="movie-header">
+                          <h3>{movie.title}</h3>
+                          <div className="overall-sentiment">
+                            <div className={`overall-sentiment-badge ${overallSentiment.class}`}>
+                              {overallSentiment.sentiment}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="sentiment-bar overall-sentiment-bar">
+                          <div 
+                            className={`sentiment-value ${overallSentiment.class}`}
+                            style={{ 
+                              width: `${Math.abs(overallSentiment.score) * 100}%`,
+                              marginLeft: overallSentiment.score < 0 ? 'auto' : '50%',
+                              marginRight: overallSentiment.score >= 0 ? 'auto' : '50%'
+                            }}
+                          ></div>
+                          <div className="sentiment-center-line"></div>
+                        </div>
+                        <p className="review-count">{movie.reviews.length} {movie.reviews.length === 1 ? 'Review' : 'Reviews'}</p>
                         
-                        return (
-                          <div key={index} className={`review-item ${sentimentClass}`}>
-                            <p className="review-text">{review.text}</p>
-                            <div className="sentiment-container">
-                              <p className="sentiment">
-                                Sentiment: <span className={sentimentClass}>{review.sentiment}</span>
-                              </p>
-                              <div className="sentiment-meter">
-                                <div className="sentiment-bar">
-                                  <div 
-                                    className={`sentiment-value ${sentimentClass}`}
-                                    style={{ 
-                                      width: `${Math.abs(review.sentimentScore) * 100}%`,
-                                      marginLeft: review.sentimentScore < 0 ? 'auto' : '50%',
-                                      marginRight: review.sentimentScore >= 0 ? 'auto' : '50%'
-                                    }}
-                                  ></div>
-                                  <div className="sentiment-center-line"></div>
+                        {movie.reviews.map((review, index) => {
+                          const sentimentClass = getSentimentClass(review.sentimentScore);
+                          
+                          return (
+                            <div key={index} className={`review-item ${sentimentClass}`}>
+                              <p className="review-text">{review.text}</p>
+                              <div className="sentiment-container">
+                                <p className="sentiment">
+                                  Sentiment: <span className={sentimentClass}>{review.sentiment}</span>
+                                </p>
+                                <div className="sentiment-meter">
+                                  <div className="sentiment-bar">
+                                    <div 
+                                      className={`sentiment-value ${sentimentClass}`}
+                                      style={{ 
+                                        width: `${Math.abs(review.sentimentScore) * 100}%`,
+                                        marginLeft: review.sentimentScore < 0 ? 'auto' : '50%',
+                                        marginRight: review.sentimentScore >= 0 ? 'auto' : '50%'
+                                      }}
+                                    ></div>
+                                    <div className="sentiment-center-line"></div>
+                                  </div>
                                 </div>
                               </div>
+                              <p className="date">{new Date(review.date).toLocaleDateString()}</p>
                             </div>
-                            <p className="date">{new Date(review.date).toLocaleDateString()}</p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ))}
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
