@@ -149,8 +149,8 @@ function App() {
   const getSentimentClass = (score) => {
     if (!score && score !== 0) return 'neutral';
     if (score > 0.5) return 'very-positive';
-    if (score > 0) return 'positive';
-    if (score === 0) return 'neutral';
+    if (score > 0.05) return 'positive';
+    if (score >= -0.05 && score <= 0.05) return 'neutral';
     if (score > -0.5) return 'negative';
     return 'very-negative';
   };

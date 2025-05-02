@@ -56,7 +56,7 @@ mongoose.connect(process.env.MONGO_URL)
 // Updated Schema: Movie and Review schemas
 const reviewSchema = new mongoose.Schema({
   text: { type: String, required: true },
-  sentiment: { type: String, required: true }, // "positive" or "negative"
+  sentiment: { type: String, required: true }, // "positive", "negative", or "neutral"
   sentimentScore: { type: Number, default: 0 }, // Range from -1 (very negative) to 1 (very positive)
   date: { type: Date, default: Date.now },
   userId: { type: String, required: true } // Add user ID for identifying who wrote the review
@@ -92,8 +92,11 @@ function analyzeSentiment(text) {
   // Calculate sentiment score (-1 to 1 range)
   const sentimentScore = analyzer.getSentiment(stemmed);
   
-  // Convert to simple positive/negative classification
-  const sentiment = sentimentScore >= 0 ? 'positive' : 'negative';
+  // Convert to simple positive/negative/neutral classification
+  const sentiment = 
+    sentimentScore > 0.05 ? 'positive' : 
+    sentimentScore < -0.05 ? 'negative' : 
+    'neutral';
   
   return { sentiment, sentimentScore };
 }
